@@ -1,4 +1,4 @@
-# When an item is repaired in an anvil with a raw material (gems, ingots, etc.),
-# don't let the repair increase the item's "prior work" penalty. Applying
-# enchantments (or combining items) still increases it, just like in vanilla.
+# Don't let anvil repairs increase an item's "prior work" penalty. Repairing
+# with a raw material (gems, ingots, etc.) or with an unenchanted item keeps the
+# cost the same; only adding a new enchantment increases it, like in vanilla.
 repair_dont_increase_cost: true

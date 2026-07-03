@@ -13,9 +13,10 @@ import com.kraby.repairtweaks.RepairTweaks;
 
 /**
  * Keeps an item's "prior work" penalty (its anvil repair cost) from increasing
- * when the item is repaired with a raw material (gems, ingots, etc.).
- * Applying enchantments or combining two items still increases the penalty just
- * like in vanilla.
+ * when nothing new is being enchanted onto it. Repairing with a raw material
+ * (gems, ingots, etc.) or with an unenchanted copy of the item leaves the cost
+ * untouched. Only adding an enchantment (an enchanted book, or merging in an
+ * enchanted item) still increases the penalty, like in vanilla.
  */
 public class RepairCostKeeperListener implements Listener {
 
@@ -37,15 +38,10 @@ public class RepairCostKeeperListener implements Listener {
             return;
         }
 
-        // Only apply to material repairs: the second slot must be a repair
-        // material (a different item than the one being repaired). This leaves
-        // out combining two of the same item, which keeps its vanilla cost.
-        if (secondItem.getType() == firstItem.getType()) {
-            return;
-        }
-
-        // Leave enchantments (e.g. enchanted books) alone: those should still
-        // increase the prior work cost like in vanilla.
+        // Leave enchantments alone: if the second item carries any enchantments
+        // (an enchanted book, or an enchanted item being merged in), a new
+        // enchantment is being added, so let the prior work cost increase like
+        // in vanilla. Repairs with no enchantment involved keep their cost.
         ItemMeta secondItemMeta = secondItem.getItemMeta();
         if (secondItemMeta.hasEnchants()
             || (secondItemMeta instanceof EnchantmentStorageMeta && ((EnchantmentStorageMeta) secondItemMeta).hasStoredEnchants())) {
