@@ -1,0 +1,50 @@
+name: Build RepairTweaks
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+# The build only needs to read the repo. Artifact upload needs no extra scopes.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build jar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Build plugin jar
+        run: gradle build --stacktrace
+
+      # github.run_number increments on every run of this workflow (even failed
+      # ones), so each successful build gets a new, higher number: -1, -2, -3 ...
+      - name: Rename jar with build number
+        run: |
+          set -euo pipefail
+          jar="$(ls lib/build/libs/*.jar | head -n 1)"
+          mkdir -p out
+          cp "$jar" "out/RepairTweaks-${{ github.run_number }}.jar"
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: RepairTweaks-${{ github.run_number }}
+          path: out/RepairTweaks-${{ github.run_number }}.jar
+          if-no-files-found: error
