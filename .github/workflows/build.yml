@@ -30,8 +30,10 @@ jobs:
         with:
           gradle-version: '9.1.0'
 
+      # -x test skips the (empty) JUnit test task. It isn't needed to produce
+      # the jar, and older JUnit doesn't play well with Gradle 9 / Java 25.
       - name: Build plugin jar
-        run: gradle build --stacktrace
+        run: gradle build -x test --stacktrace
 
       # github.run_number increments on every run of this workflow (even failed
       # ones), so each successful build gets a new, higher number: -1, -2, -3 ...
