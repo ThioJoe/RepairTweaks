@@ -7,7 +7,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.kraby.repairtweaks.commands.ReloadConfig;
-import com.kraby.repairtweaks.listeners.MendingBehaviourChangesListener;
 import com.kraby.repairtweaks.listeners.RepairCostKeeperListener;
 import com.kraby.repairtweaks.utils.MainConfig;
 
@@ -21,7 +20,6 @@ public final class RepairTweaks extends JavaPlugin {
 
 		loadConfig();
 		
-		this.getServer().getPluginManager().registerEvents(new MendingBehaviourChangesListener(), this);
 		this.getServer().getPluginManager().registerEvents(new RepairCostKeeperListener(), this);
 		
 		getCommand("rtreload").setExecutor(new ReloadConfig());

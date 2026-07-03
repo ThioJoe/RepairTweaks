@@ -1,28 +1,4 @@
-# repairing items don't change the item repair cost.
-repair_dont_increase_cost: false
-
-# changes the behaviour of mending to either "MENDING" (classical behaviour)
-# or "REPAIR_COST" (lower the repair cost of the item by some amount, instead of really enchanting with mending)
-mending_behaviour:
-  enabled: false
-  1:
-    effect: REPAIR_COST
-    levels: 1
-  2:
-    effect: REPAIR_COST
-    levels: 2
-  3:
-    effect: REPAIR_COST
-    levels: 4
-  4:
-    effect: REPAIR_COST
-    levels: 8
-  5:
-    effect: MENDING
-    durability_per_xp: 0.5
-  6:
-    effect: MENDING
-    durability_per_xp: 1.0
-  7:
-    effect: MENDING
-    durability_per_xp: 2.0  # default behaviour
+# When an item is repaired in an anvil with a raw material (gems, ingots, etc.),
+# don't let the repair increase the item's "prior work" penalty. Applying
+# enchantments (or combining items) still increases it, just like in vanilla.
+repair_dont_increase_cost: true

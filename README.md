@@ -1,13 +1,13 @@
 # RepairTweaks
 
-Tweaks certain repair-related behaviours of minecraft.
-- Anvil item repair : by default, repairing an item in an anvil quickly increases its repair cost, preventing from repairing the item indefinitely. This plugin allows to make repair *not* increase the repair cost.
-- Mending behaviour : allow to change how mending operates. A bit untested, there are currently two modes : **classical mending behaviour** (allows to define the durability per xp), and **repair-cost lowering** behaviour where applying the mending enchant actually only decrease the repair cost of the item.
+Tweaks the anvil repair behaviour of Minecraft.
+
+- **Repair cost** : by default, repairing an item in an anvil increases its "prior work" penalty each time, which quickly makes the item too expensive to repair or enchant further. This plugin stops repairs done with **raw materials** (gems, ingots, etc.) from increasing that penalty, so an item can be repaired with materials indefinitely. Applying **enchantments** (or combining two items) still increases the penalty like in vanilla.
 
 ## Commands
 
 `/rtreload` : reload / regenerate the config file
 
-## Default config
+## Config
 
-See [config.yml](lib/src/main/resources/config.yml) for default config. Everything is disabled by default
+See [config.yml](lib/src/main/resources/config.yml) for the config. The repair-cost tweak is enabled by default.
