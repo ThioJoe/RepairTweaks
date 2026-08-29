@@ -3,7 +3,6 @@ package com.kraby.repairtweaks.listeners;
 import org.bukkit.GameMode;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
@@ -14,14 +13,15 @@ import org.bukkit.inventory.meta.Repairable;
 import com.kraby.repairtweaks.RepairTweaks;
 
 /**
- * Handles the "prior work" penalty for anvil repairs that don't add any new
- * enchantment (repairing with a raw material, or with an unenchanted copy of
- * the item). For those repairs it keeps the item's stored penalty from growing,
- * drops the penalty from the level cost of the repair itself, and lifts the
- * vanilla 40-level "Too Expensive!" cap so even a heavily penalised item can
- * always be repaired at its base cost. Adding an enchantment (an enchanted
- * book, or merging in an enchanted item) still raises and charges the penalty
- * and still becomes "Too Expensive!" past 40 levels, like in vanilla.
+ * Handles the "prior work" penalty for anvil operations that don't add any
+ * new enchantment. Repairs (with a raw material, or an unenchanted copy of
+ * the item) keep the item's stored penalty from growing and drop the penalty
+ * from the level cost, so only the base repair cost is charged; plain renames
+ * charge just their base cost of 1 level. The vanilla 40-level
+ * "Too Expensive!" cap is lifted so even a heavily penalised item can always
+ * be repaired or renamed. Adding an enchantment (an enchanted book, or an
+ * enchanted item merged in) keeps full vanilla behaviour: it raises and
+ * charges the penalty and still becomes "Too Expensive!" past 40 levels.
  */
 public class RepairCostKeeperListener implements Listener {
 
@@ -32,31 +32,28 @@ public class RepairCostKeeperListener implements Listener {
     private static final int VANILLA_MAX_REPAIR_COST = 40;
 
     /**
-     * Vanilla decides "Too Expensive!" (and clears the result) before
-     * PrepareAnvilEvent fires, so the cap must already be lifted when the
-     * result is computed for penalised repairs to reach the event at all.
-     * Vanilla behaviour for enchanting and renaming is restored in
-     * {@link #keepCostOnRepair}.
+     * The cap set while the tweak is enabled. Vanilla applies its cap (and
+     * clears the result) before this event fires, so the cap must already be
+     * lifted when a penalised repair is computed; the vanilla limit is then
+     * re-applied below to every operation that isn't a discounted repair. The
+     * distinctive value also identifies anvils this listener has touched, so
+     * the lift can be undone after the tweak is disabled by a config reload.
      */
-    @EventHandler
-    public void liftCostCapOnOpen(InventoryOpenEvent e) {
-        if (!RepairTweaks.singleton.config.isRepairDontIncreaseCost())
-            return;
-
-        if (e.getInventory() instanceof AnvilInventory)
-            ((AnvilInventory) e.getInventory()).setMaximumRepairCost(Integer.MAX_VALUE);
-    }
+    private static final int LIFTED_MAX_REPAIR_COST = Integer.MAX_VALUE;
 
     @EventHandler
     public void keepCostOnRepair(PrepareAnvilEvent e) {
-        if (!RepairTweaks.singleton.config.isRepairDontIncreaseCost())
-            return;
-
         AnvilInventory inv = e.getInventory();
+        boolean enabled = RepairTweaks.singleton.config.isRepairDontIncreaseCost();
 
-        // Covers anvils that were already open when the plugin (re)loaded;
-        // takes effect from the next result computation on.
-        inv.setMaximumRepairCost(Integer.MAX_VALUE);
+        // Keep the anvil's cap in sync with the config. Changing it here is
+        // too late for the computation this event describes, but is in effect
+        // for every following one - the next slot change or rename keystroke
+        // triggers a fresh computation.
+        if (enabled)
+            inv.setMaximumRepairCost(LIFTED_MAX_REPAIR_COST);
+        else if (inv.getMaximumRepairCost() == LIFTED_MAX_REPAIR_COST)
+            inv.setMaximumRepairCost(VANILLA_MAX_REPAIR_COST);
 
         ItemStack firstItem = inv.getFirstItem();
         ItemStack secondItem = inv.getSecondItem();
@@ -68,58 +65,57 @@ public class RepairCostKeeperListener implements Listener {
         if (isEmpty(firstItem))
             return;
 
-        // Rename-only operation (empty second slot): with the cap lifted,
-        // vanilla's own clamp of rename costs to 39 levels no longer engages,
-        // so restore it.
-        if (isEmpty(secondItem)) {
-            if (hasResult && inv.getRepairCost() >= VANILLA_MAX_REPAIR_COST)
-                inv.setRepairCost(VANILLA_MAX_REPAIR_COST - 1);
-            return;
-        }
-
-        // Leave enchantments alone: if the second item carries any enchantments
-        // (an enchanted book, or an enchanted item being merged in), a new
-        // enchantment is being added, so let the prior work cost increase like
-        // in vanilla - including the "Too Expensive!" limit the lifted cap
-        // bypassed: past 40 levels the operation stays impossible outside
-        // creative mode.
-        ItemMeta secondItemMeta = secondItem.getItemMeta();
-        if (secondItemMeta != null
+        // A new enchantment only ever comes from the second slot: an enchanted
+        // item being merged in, or an enchanted book. (A non-empty item always
+        // has a meta, so a null meta doubles as "second slot empty".)
+        ItemMeta secondItemMeta = isEmpty(secondItem) ? null : secondItem.getItemMeta();
+        boolean addsEnchantment = secondItemMeta != null
             && (secondItemMeta.hasEnchants()
-                || (secondItemMeta instanceof EnchantmentStorageMeta && ((EnchantmentStorageMeta) secondItemMeta).hasStoredEnchants()))) {
-            if (hasResult
-                && inv.getRepairCost() >= VANILLA_MAX_REPAIR_COST
-                && e.getView().getPlayer().getGameMode() != GameMode.CREATIVE) {
-                e.setResult(null);
-            }
-            return;
-        }
+                || (secondItemMeta instanceof EnchantmentStorageMeta storage
+                    && storage.hasStoredEnchants()));
 
-        if (!hasResult
-            || !(firstItem.getItemMeta() instanceof Repairable)
-            || !(result.getItemMeta() instanceof Repairable)) {
-            return;
-        }
-
-        int firstPriorWork = ((Repairable) firstItem.getItemMeta()).getRepairCost();
-
-        // Keep the result's stored prior work penalty from growing.
-        Repairable resultMeta = (Repairable) result.getItemMeta();
-        resultMeta.setRepairCost(firstPriorWork);
-        result.setItemMeta(resultMeta);
-        e.setResult(result);
-
-        // Drop the prior work penalty from this operation's level cost too, so a
-        // basic repair is never charged for an already-accumulated penalty -
-        // only the normal repair cost (e.g. the material sacrifice) is left.
+        // A repair that adds no enchantment: keep the result's stored penalty
+        // from growing, and drop the penalty from this operation's level cost
+        // so only the base cost (e.g. the material sacrifice) is charged.
         // Vanilla adds each input item's stored penalty to the level cost, so
-        // subtracting them removes exactly the penalty portion. Never go below
-        // 1: every real operation has a base cost of at least 1 level, and
-        // vanilla refuses to hand over a result priced at 0.
-        int secondPriorWork = (secondItem.getItemMeta() instanceof Repairable)
-            ? ((Repairable) secondItem.getItemMeta()).getRepairCost()
-            : 0;
-        inv.setRepairCost(Math.max(1, inv.getRepairCost() - firstPriorWork - secondPriorWork));
+        // subtracting them removes exactly the penalty portion. The floor of 1
+        // matters because vanilla refuses to hand over a result priced at 0;
+        // any real operation's base cost is at least 1 and far below the cap.
+        if (enabled && hasResult && secondItemMeta != null && !addsEnchantment
+            && firstItem.getItemMeta() instanceof Repairable firstMeta
+            && result.getItemMeta() instanceof Repairable resultMeta)
+        {
+            resultMeta.setRepairCost(firstMeta.getRepairCost());
+            result.setItemMeta(resultMeta);
+            e.setResult(result);
+
+            int priorWork = firstMeta.getRepairCost()
+                + (secondItemMeta instanceof Repairable secondMeta ? secondMeta.getRepairCost() : 0);
+            inv.setRepairCost(Math.max(1, inv.getRepairCost() - priorWork));
+            return;
+        }
+
+        // Renames (empty second slot) don't charge the penalty either: a
+        // rename's base cost is always exactly 1 level, so charge just that.
+        // Vanilla already leaves the stored penalty unchanged for renames.
+        if (enabled && hasResult && secondItemMeta == null) {
+            inv.setRepairCost(1);
+            return;
+        }
+
+        // Everything else is vanilla's business: re-apply the end state its
+        // cap would have produced, since this computation may have run with
+        // the cap lifted (including the first one after the tweak was
+        // disabled). A rename clamps at 39 levels; any other operation at or
+        // past the cap yields no result outside creative mode. When the
+        // computation ran with the cap in place, vanilla has already done all
+        // of this itself and nothing below changes anything.
+        if (hasResult && inv.getRepairCost() >= VANILLA_MAX_REPAIR_COST) {
+            if (secondItemMeta == null)
+                inv.setRepairCost(VANILLA_MAX_REPAIR_COST - 1);
+            else if (e.getView().getPlayer().getGameMode() != GameMode.CREATIVE)
+                e.setResult(null);
+        }
     }
 
     private static boolean isEmpty(ItemStack item) {
