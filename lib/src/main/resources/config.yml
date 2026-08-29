@@ -1,6 +1,7 @@
 # Free anvil repairs from the "prior work" penalty. Repairing with a raw
 # material (gems, ingots, etc.) or with an unenchanted item neither increases
 # the penalty nor charges the accumulated one, so the repair only costs its
-# normal amount. Only adding a new enchantment increases and charges the
-# penalty, like in vanilla.
+# normal amount - even on items whose penalty would make vanilla say
+# "Too Expensive!". Only adding a new enchantment increases and charges the
+# penalty, and still hits the vanilla 40-level limit, like in vanilla.
 repair_dont_increase_cost: true
